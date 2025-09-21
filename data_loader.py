@@ -1,27 +1,40 @@
 import yfinance as yf
 import pandas as pd
 
-def load_data(ticker, start="2015-01-01", end="2025-12-31"):
+def load_data(ticker, period="max"):
     """
-    Fetch stock data for the given ticker from Yahoo Finance.
-    Returns a clean DataFrame with Date, OHLC, and Volume.
+    Load data for a single ticker
+    Returns a dataframe with 'ds' and 'y'
     """
     try:
-        df = yf.download(ticker, start=start, end=end)
+        tick = yf.Ticker(ticker)
+        df = tick.history(period=period)
+        if df.empty:
+            print(f"❌ No data available for {ticker}")
+            return pd.DataFrame()
+        
         df.reset_index(inplace=True)
-
-        # Rename index column to Date if needed
-        if "Date" not in df.columns:
-            df.rename(columns={"index": "Date"}, inplace=True)
-
-        # Define preferred columns
-        cols = ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"]
-
-        # Keep only those available in df
-        available_cols = [c for c in cols if c in df.columns]
-        df = df[available_cols]
-
+        df.rename(columns={"Date": "ds", "Close": "y"}, inplace=True)
+        df['y'] = pd.to_numeric(df['y'], errors='coerce')
+        df.dropna(subset=['y'], inplace=True)
+        if df.empty:
+            print(f"❌ No valid closing price data for {ticker}")
+            return pd.DataFrame()
+        
+        print(f"✅ Data loaded for {ticker} ({len(df)} rows)")
         return df
     except Exception as e:
-        print(f"Error loading {ticker}: {e}")
+        print(f"⚠️ Error loading {ticker}: {e}")
         return pd.DataFrame()
+
+
+def load_multiple_tickers(tickers, period="max"):
+    """
+    Load multiple tickers and return a dictionary {ticker: df}
+    """
+    all_data = {}
+    for ticker in tickers:
+        df = load_data(ticker, period)
+        if not df.empty:
+            all_data[ticker] = df
+    return all_data

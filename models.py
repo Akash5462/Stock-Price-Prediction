@@ -1,52 +1,28 @@
-import numpy as np
-import pandas as pd
-from sklearn.linear_model import LinearRegression
 from prophet import Prophet
 
-
-def train_regression(df):
-    """
-    Train a simple Linear Regression model on Close price.
-    Uses index (time steps) as X and closing price as y.
-    """
-    if df.empty:
-        return None
-
-    X = np.arange(len(df)).reshape(-1, 1)   # time steps
-    y = df['Close'].values
-
-    model = LinearRegression()
-    model.fit(X, y)
-
-    return model
-
-
 def train_prophet(df):
-    """
-    Train a Prophet model on Close prices.
-    Expects a DataFrame with 'Date' and 'Close' columns.
-    """
-    if df.empty:
-        return None
-
     try:
-        data = df[['Date', 'Close']].copy()
-        data = data.rename(columns={"Date": "ds", "Close": "y"})
-
-        # Ensure proper types
-        data['ds'] = pd.to_datetime(data['ds'])
-        data['y'] = pd.to_numeric(data['y'], errors='coerce')
-
-        data = data.dropna()
-
-        if len(data) < 30:   # Prophet needs some history
-            print("Not enough data for Prophet.")
-            return None
-
-        model = Prophet()
-        model.fit(data)
-
+        # df is expected to already have 'ds' and 'y'
+        model = Prophet(daily_seasonality=True)
+        model.fit(df)
         return model
     except Exception as e:
         print(f"Prophet training failed: {e}")
         return None
+
+
+def forecast_with_prophet(df, periods=180):
+    """
+    Returns model and forecast dataframe
+    """
+    try:
+        model = train_prophet(df)
+        if model is None:
+            return None, None
+        
+        future = model.make_future_dataframe(periods=periods)
+        forecast = model.predict(future)
+        return model, forecast
+    except Exception as e:
+        print(f"Forecasting failed: {e}")
+        return None, None
